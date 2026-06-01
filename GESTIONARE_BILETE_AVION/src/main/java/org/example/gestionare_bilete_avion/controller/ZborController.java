@@ -147,5 +147,14 @@ public class ZborController {
             return ResponseEntity.badRequest().body("error  " + e.getMessage());
         }
     }
+    @PostMapping("/aplica-promo")
+    public ResponseEntity<?> aplicaCodPromo(@RequestBody Map<String, String> request) {
+        String cod = request.get("cod");
+        if ("NIMIRIS20".equalsIgnoreCase(cod)) {
+            return ResponseEntity.ok(0.20);
+        } else {
+            return ResponseEntity.badRequest().body("Cod invalid");
+        }
+    }
 }
 class SugestiePretRequest { public Long orasPlecareId; public Long orasDestinatieId; public Long modelAvionId; }

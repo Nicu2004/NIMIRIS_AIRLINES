@@ -5,10 +5,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
-
     @Autowired
     UserRepository userRepository;
-
     public User inregistrare(User user) {
         if (userRepository.findByEmail(user.getEmail()) != null) {
             throw new RuntimeException("Email deja utilizat!");

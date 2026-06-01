@@ -2,6 +2,30 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const PassengerDetails = ({ userId }) => {
+
+
+const [promoCode, setPromoCode] = useState('');
+const [discount, setDiscount] = useState(0);
+const [promoStatus, setPromoStatus] = useState('');
+
+
+const handleApplyPromo = async () => {
+  try {
+    const res = await fetch('http://localhost:8080/api/zboruri/aplica-promo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cod: promoCode })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setDiscount(data); // data este procentul (ex: 0.20)
+      setPromoStatus('Cod aplicat!');
+    } else {
+      setPromoStatus('Cod invalid.');
+      setDiscount(0);
+    }
+  } catch (err) { console.error(err); }
+};
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -9,6 +33,8 @@ const PassengerDetails = ({ userId }) => {
     pretTur = 150,
     pretRetur = 120,
     esteRetur = true,
+    pretTotalFinal = null,
+    discountAplicat = 0
   } = location.state || {};
 
   const [contact, setContact] = useState({ nume: '', telefon: '' });
@@ -22,23 +48,23 @@ const PassengerDetails = ({ userId }) => {
     let pretBazaZboruri = pretTur + (esteRetur ? pretRetur : 0);
     let pretBazaTotal = pretBazaZboruri * totalPasageri;
     
-    let discount = 0;
-    let taxeExtra = 0;
-
+    let discountPromo = pretBazaTotal * discount; // 'discount' este starea locală (0.20, 0.10 etc)
+    
+    let discountRetur = 0;
     if (esteRetur) {
-      discount = pretBazaTotal * 0.10;
+        discountRetur = pretBazaTotal * 0.10;
     }
 
-
+    let taxeExtra = 0;
     if (optiuni.masa) taxeExtra += pretBazaTotal * 0.05;
     if (optiuni.bagaj) taxeExtra += pretBazaTotal * 0.05;
 
-    const totalFinal = pretBazaTotal - discount + taxeExtra;
+    const totalFinal = pretBazaTotal - discountPromo - discountRetur + taxeExtra;
 
-    return { pretBazaTotal, discount, taxeExtra, totalFinal };
+    return { pretBazaTotal, discountPromo, discountRetur, taxeExtra, totalFinal };
   };
 
-  const { pretBazaTotal, discount, taxeExtra, totalFinal } = calculeazaPret();
+  const { pretBazaTotal, discountPromo, discountRetur, taxeExtra, totalFinal } = calculeazaPret();
 
 const handleFinalizare = async (e) => {
     e.preventDefault();
@@ -82,7 +108,7 @@ const handleFinalizare = async (e) => {
     try {
       const cereriRezervare = rezervariDeFacut.map(({ zbor, clasa }) => {
         const payload = {
-          zborId: zbor.id?.toString(), // Trimitem ID-ul segmentului individual
+          zborId: zbor.id?.toString(), 
           clasa: clasa,
           userId: esteLogat ? storedUserId : null,
           numePasager: contact.nume,
@@ -95,6 +121,7 @@ const handleFinalizare = async (e) => {
           areBagaj: optiuni.bagaj,
           metodaPlata: metodaPlata,
           pretFinal: totalFinal / rezervariDeFacut.length, 
+          codPromo: location.state?.codPromo || null,
           isPlatit: metodaPlata === 'CARD'
         };
 
@@ -214,10 +241,25 @@ const handleFinalizare = async (e) => {
           <h3 className="text-2xl font-bold text-white mb-6">Sumar Rezervare</h3>
           
           <div className="flex flex-col gap-4 text-sm mb-6 border-b border-white/10 pb-6">
-            <div className="flex justify-between text-gray-300">
-              <span>Pasageri Total:</span>
-              <span className="text-white font-bold">{totalPasageri}</span>
+           <div className="flex flex-col gap-3 mb-6 border-b border-white/10 pb-6">
+              <div className="flex gap-2">
+                  <input 
+                      type="text" 
+                      placeholder="Cod promoțional"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      className="w-full p-3 rounded-xl bg-black/40 text-white border border-white/10 outline-none"
+                  />
+                  <button onClick={handleApplyPromo} className="px-4 bg-blue-600 rounded-xl text-white font-bold">Aplică</button>
+              </div>
+              {promoStatus && <span className={`text-xs ${discount > 0 ? 'text-green-400' : 'text-red-400'}`}>{promoStatus}</span>}
+          </div>
+          {discount > 0 && (
+            <div className="flex justify-between text-green-400">
+                <span>Reducere Promo ({discount * 100}%):</span>
+                <span>-{discountPromo.toFixed(2)} €</span>
             </div>
+        )}
             
             <div className="flex justify-between text-gray-300">
               <span>Preț Bază ({totalPasageri} pers):</span>
